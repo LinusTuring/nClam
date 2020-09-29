@@ -106,19 +106,22 @@
         /// <param name="cancellationToken"></param>
         private async Task SendStreamFileChunksAsync(Stream sourceStream, Stream clamStream, CancellationToken cancellationToken)
         {
-            var size = MaxChunkSize;
-            var bytes = new byte[size];
+            int size = 0;
+            int read;
+            byte[] bytes = new byte[MaxChunkSize];
 
-            while ((size = await sourceStream.ReadAsync(bytes, 0, size, cancellationToken).ConfigureAwait(false)) > 0)
+            while ((read = await sourceStream.ReadAsync(bytes, 0, MaxChunkSize, cancellationToken).ConfigureAwait(false)) > 0)
             {
-                if (sourceStream.Position > MaxStreamSize)
+                size = +read;
+
+                if (size > MaxStreamSize)
                 {
                     throw new MaxStreamSizeExceededException(MaxStreamSize);
                 }
 
-                var sizeBytes = BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder(size));  //convert size to NetworkOrder!
-                await clamStream.WriteAsync(sizeBytes, 0, sizeBytes.Length, cancellationToken).ConfigureAwait(false);
-                await clamStream.WriteAsync(bytes, 0, size, cancellationToken).ConfigureAwait(false);
+                var readBytes = BitConverter.GetBytes(System.Net.IPAddress.HostToNetworkOrder(read));  //convert size to NetworkOrder!
+                await clamStream.WriteAsync(readBytes, 0, readBytes.Length, cancellationToken).ConfigureAwait(false);
+                await clamStream.WriteAsync(bytes, 0, read, cancellationToken).ConfigureAwait(false);
             }
 
             var newMessage = BitConverter.GetBytes(0);
